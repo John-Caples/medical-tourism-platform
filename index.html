@@ -3,105 +3,112 @@
 <head>
   <title>Trusted Care Abroad</title>
   <style>
-    body { font-family: Arial; padding: 20px; }
-    table { border-collapse: collapse; width: 100%; margin-top: 20px; }
-    td, th { border: 1px solid #ddd; padding: 12px; cursor: pointer; }
-    input[type="text"] { padding: 8px; width: 300px; }
-    label { margin-left: 20px; }
-    #aiResults { margin-top: 15px; padding: 15px; background: white; border-radius: 5px; }
+    body { font-family: Arial, sans-serif; margin: 20px; background: #f8f9fa; }
+    .container { max-width: 1200px; margin: 0 auto; }
+    #aiSection { background: #e3f2fd; padding: 25px; border-radius: 10px; margin-bottom: 30px; }
+    input[type="text"], button { padding: 12px; font-size: 16px; }
+    button { background: #2196F3; color: white; border: none; cursor: pointer; }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; background: white; }
+    th, td { padding: 15px; text-align: left; border-bottom: 1px solid #ddd; }
+    th { background: #2196F3; color: white; cursor: pointer; }
+    tr:hover { background-color: #f5f5f5; }
+    .highlight { background: #e8f5e9 !important; }
   </style>
 </head>
 <body>
-  <h1>Medical Tourism Platform</h1>
-  
-  <div style="margin: 40px 0; background: #f5f5f5; padding: 20px; border-radius: 10px;">
-    <h3>AI Health Assistant</h3>
-    <input type="text" id="aiQuery" placeholder="Describe your medical needs..." style="width: 400px; padding: 10px;">
-    <button onclick="getRecommendations()" style="padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 5px;">
-      Get Recommendations
-    </button>
-    <div id="aiResults"></div>
+  <div class="container">
+    <h1>🏥 Trusted Care Abroad</h1>
+    
+    <div id="aiSection">
+      <h3>🤖 AI Health Assistant</h3>
+      <input type="text" id="aiQuery" placeholder="Example: 'Affordable heart surgery in Asia'" style="width: 60%;">
+      <button onclick="getRecommendations()">Get Recommendations</button>
+      <div id="aiResults" style="margin-top: 15px;"></div>
+    </div>
+
+    <div style="margin: 30px 0;">
+      <input type="text" id="search" placeholder="🔍 Search hospitals..." style="width: 300px;">
+      <label style="margin-left: 20px;">
+        <input type="checkbox" id="accreditedOnly"> ✅ Show Only Accredited
+      </label>
+    </div>
+
+    <table id="hospitals">
+      <thead>
+        <tr>
+          <th onclick="sort(0)">Hospital</th>
+          <th onclick="sort(1)">Country</th>
+          <th onclick="sort(2)">Specialty</th>
+          <th onclick="sort(4)">Price (USD)</th>
+          <th onclick="sort(3)">Accredited</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
   </div>
 
-  <input type="text" id="search" placeholder="Search hospitals...">
-  <label>
-    <input type="checkbox" id="accreditedOnly"> Show only accredited
-  </label>
-
-  <table id="hospitals">
-    <tr>
-      <th onclick="sort(0)">Hospital</th>
-      <th onclick="sort(1)">Country</th>
-      <th onclick="sort(2)">Specialty</th>
-      <th onclick="sort(4)">Price</th>
-      <th onclick="sort(3)">Accredited</th>
-    </tr>
-  </table>
-
   <script>
-    let allHospitals = [];
-    let sortColumn = null;
-    let sortDirection = 1;
+    // Configuration
+    const HOSPITALS_CSV = 'https://raw.githubusercontent.com/John-Caples/medical-tourism-platform/main/hospitals.csv';
+    const HF_API_KEY = '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';
+    let hospitals = [];
+    let sortState = { column: null, direction: 1 };
 
-    // Load hospital data
-    fetch('https://raw.githubusercontent.com/John-Caples/medical-tourism-platform/main/hospitals.csv')
-      .then(r => r.text())
-      .then(d => {
-        allHospitals = d.split('\n').slice(1);
-        updateTable();
-      });
+    // Initial Load
+    window.onload = async () => {
+      const response = await fetch(HOSPITALS_CSV);
+      const data = await response.text();
+      hospitals = data.split('\n').slice(1).filter(row => row.trim());
+      updateTable();
+    };
 
-    // Table functions
+    // Table Management
     function updateTable() {
-      const search = document.getElementById('search').value.toLowerCase();
+      const searchTerm = document.getElementById('search').value.toLowerCase();
       const accreditedOnly = document.getElementById('accreditedOnly').checked;
       
-      let filtered = allHospitals.filter(row => {
-        const [n,c,s,a,p] = row.split(',');
-        return (n.toLowerCase().includes(search) || c.toLowerCase().includes(search)) && 
-              (!accreditedOnly || a === 'Yes');
+      let filtered = hospitals.filter(row => {
+        const [name, country, specialty, accredited, price] = row.split(',');
+        return (name.toLowerCase().includes(searchTerm) || country.toLowerCase().includes(searchTerm)) &&
+               (!accreditedOnly || accredited === 'Yes');
       });
 
-      if(sortColumn !== null) {
-        filtered.sort((a,b) => {
-          const [aN,aC,aS,aA,aP] = a.split(',');
-          const [bN,bC,bS,bA,bP] = b.split(',');
-          const valsA = [aN, aC, aS, aA, Number(aP)];
-          const valsB = [bN, bC, bS, bA, Number(bP)];
-          return (valsA[sortColumn] > valsB[sortColumn] ? 1 : -1) * sortDirection;
+      if(sortState.column !== null) {
+        filtered.sort((a, b) => {
+          const aVal = getSortValue(a.split(',')[sortState.column]);
+          const bVal = getSortValue(b.split(',')[sortState.column]);
+          return (aVal > bVal ? 1 : -1) * sortState.direction;
         });
       }
 
-      document.getElementById('hospitals').innerHTML = `
-        <tr>
-          <th onclick="sort(0)">Hospital ${sortColArrow(0)}</th>
-          <th onclick="sort(1)">Country ${sortColArrow(1)}</th>
-          <th onclick="sort(2)">Specialty ${sortColArrow(2)}</th>
-          <th onclick="sort(4)">Price ${sortColArrow(4)}</th>
-          <th onclick="sort(3)">Accredited ${sortColArrow(3)}</th>
-        </tr>
-        ${filtered.map(row => {
-          const [n,c,s,a,p] = row.split(',');
-          return `<tr>
-            <td>${n}</td>
-            <td>${c}</td>
-            <td>${s}</td>
-            <td>$${Number(p).toLocaleString()}</td>
-            <td>${a === 'Yes' ? '✅' : '❌'}</td>
-          </tr>`;
-        }).join('')}
-      `;
+      renderTable(filtered);
+    }
+
+    function getSortValue(value) {
+      return isNaN(value) ? value.toLowerCase() : Number(value);
+    }
+
+    function renderTable(data) {
+      const tbody = document.querySelector('#hospitals tbody');
+      tbody.innerHTML = data.map(row => {
+        const [name, country, specialty, accredited, price] = row.split(',');
+        return `
+          <tr>
+            <td>${name}</td>
+            <td>${country}</td>
+            <td>${specialty}</td>
+            <td>$${Number(price).toLocaleString()}</td>
+            <td>${accredited === 'Yes' ? '✅ Certified' : '❌ Not Certified'}</td>
+          </tr>
+        `;
+      }).join('');
     }
 
     // Sorting
-    function sort(col) {
-      sortColumn = sortColumn === col ? col : col;
-      sortDirection = sortColumn === col ? sortDirection * -1 : 1;
+    function sort(column) {
+      sortState.direction = sortState.column === column ? -sortState.direction : 1;
+      sortState.column = column;
       updateTable();
-    }
-
-    function sortColArrow(col) {
-      return sortColumn === col ? (sortDirection === 1 ? '↑' : '↓') : '';
     }
 
     // AI Recommendations
@@ -113,32 +120,42 @@
         const response = await fetch('https://api-inference.huggingface.co/models/emilyalsentzer/Bio_ClinicalBERT', {
           method: 'POST',
           headers: {
-            'Authorization': 'Bearer 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',
-            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${HF_API_KEY}`,
+            'Content-Type': 'application/json'
           },
-          body: JSON.stringify({inputs: query}),
+          body: JSON.stringify({ inputs: query })
         });
         
-        const data = await response.json();
-        const medicalTerms = data[0].filter(t => t.score > 0.9).map(t => t.word);
+        const result = await response.json();
+        const medicalTerms = result[0].filter(t => t.score > 0.85).map(t => t.word);
         
-        document.getElementById('aiResults').innerHTML = `
-          <p>🔍 Found ${medicalTerms.length} key terms: ${medicalTerms.join(', ')}</p>
-          <p>💡 Matching hospitals highlighted in green</p>
-        `;
-
-        document.querySelectorAll('#hospitals tr').forEach(row => {
-          const specialty = row.children[2]?.textContent.toLowerCase() || '';
-          row.style.backgroundColor = medicalTerms.some(term => specialty.includes(term)) 
-            ? '#e6ffe6' : '';
-        });
-
-      } catch (error) {
+        highlightMatches(medicalTerms);
+        showAIResults(medicalTerms);
+        
+      } catch(error) {
         console.error('AI Error:', error);
+        document.getElementById('aiResults').innerHTML = `⚠️ Error: ${error.message}`;
       }
     }
 
-    // Event listeners
+    function highlightMatches(terms) {
+      document.querySelectorAll('#hospitals tr').forEach(row => {
+        const specialty = row.children[2]?.textContent.toLowerCase() || '';
+        row.classList.toggle('highlight', terms.some(term => specialty.includes(term)));
+      });
+    }
+
+    function showAIResults(terms) {
+      document.getElementById('aiResults').innerHTML = `
+        <div style="background: white; padding: 15px; border-radius: 8px;">
+          <h4>🧠 AI Analysis Results</h4>
+          <p>Identified medical focus areas: ${terms.join(', ') || 'None'}</p>
+          <p style="color: #666; margin-top: 10px;">Matching hospitals highlighted in green</p>
+        </div>
+      `;
+    }
+
+    // Event Listeners
     document.getElementById('search').addEventListener('input', updateTable);
     document.getElementById('accreditedOnly').addEventListener('change', updateTable);
   </script>
