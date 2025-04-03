@@ -5,95 +5,142 @@
   <style>
     body { font-family: Arial; padding: 20px; }
     table { border-collapse: collapse; width: 100%; margin-top: 20px; }
-    td, th { border: 1px solid #ddd; padding: 12px; }
+    td, th { border: 1px solid #ddd; padding: 12px; cursor: pointer; }
     input[type="text"] { padding: 8px; width: 300px; }
     label { margin-left: 20px; }
+    #aiResults { margin-top: 15px; padding: 15px; background: white; border-radius: 5px; }
   </style>
 </head>
 <body>
   <h1>Medical Tourism Platform</h1>
+  
+  <div style="margin: 40px 0; background: #f5f5f5; padding: 20px; border-radius: 10px;">
+    <h3>AI Health Assistant</h3>
+    <input type="text" id="aiQuery" placeholder="Describe your medical needs..." style="width: 400px; padding: 10px;">
+    <button onclick="getRecommendations()" style="padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 5px;">
+      Get Recommendations
+    </button>
+    <div id="aiResults"></div>
+  </div>
+
   <input type="text" id="search" placeholder="Search hospitals...">
   <label>
     <input type="checkbox" id="accreditedOnly"> Show only accredited
   </label>
 
   <table id="hospitals">
-    <tr><th>Hospital</th><th>Country</th><th>Specialty</th><th>Price</th><th>Accredited</th></tr>
+    <tr>
+      <th onclick="sort(0)">Hospital</th>
+      <th onclick="sort(1)">Country</th>
+      <th onclick="sort(2)">Specialty</th>
+      <th onclick="sort(4)">Price</th>
+      <th onclick="sort(3)">Accredited</th>
+    </tr>
   </table>
 
   <script>
-let allHospitals = [];
-let sortColumn = null;
-let sortDirection = 1;
+    let allHospitals = [];
+    let sortColumn = null;
+    let sortDirection = 1;
 
-fetch('https://raw.githubusercontent.com/John-Caples/medical-tourism-platform/main/hospitals.csv')
-  .then(r => r.text())
-  .then(d => {
-    allHospitals = d.split('\n').slice(1);
-    updateTable();
-  });
+    // Load hospital data
+    fetch('https://raw.githubusercontent.com/John-Caples/medical-tourism-platform/main/hospitals.csv')
+      .then(r => r.text())
+      .then(d => {
+        allHospitals = d.split('\n').slice(1);
+        updateTable();
+      });
 
-function updateTable() {
-  const search = document.getElementById('search').value.toLowerCase();
-  const accreditedOnly = document.getElementById('accreditedOnly').checked;
-  
-  // Filter
-  let filtered = allHospitals.filter(row => {
-    const [n,c,s,a,p] = row.split(',');
-    return (n.toLowerCase().includes(search) || c.toLowerCase().includes(search)) && 
-          (!accreditedOnly || a === 'Yes');
-  });
+    // Table functions
+    function updateTable() {
+      const search = document.getElementById('search').value.toLowerCase();
+      const accreditedOnly = document.getElementById('accreditedOnly').checked;
+      
+      let filtered = allHospitals.filter(row => {
+        const [n,c,s,a,p] = row.split(',');
+        return (n.toLowerCase().includes(search) || c.toLowerCase().includes(search)) && 
+              (!accreditedOnly || a === 'Yes');
+      });
 
-  // Sort
-  if(sortColumn !== null) {
-    filtered.sort((a,b) => {
-      const [aName,aCountry,aSpec,aAcc,aPrice] = a.split(',');
-      const [bName,bCountry,bSpec,bAcc,bPrice] = b.split(',');
-      const vals = [aName, aCountry, aSpec, aAcc, Number(aPrice)];
-      const compareA = vals[sortColumn];
-      const compareB = vals[sortColumn];
-      return (compareA > compareB ? 1 : -1) * sortDirection;
-    });
-  }
+      if(sortColumn !== null) {
+        filtered.sort((a,b) => {
+          const [aN,aC,aS,aA,aP] = a.split(',');
+          const [bN,bC,bS,bA,bP] = b.split(',');
+          const valsA = [aN, aC, aS, aA, Number(aP)];
+          const valsB = [bN, bC, bS, bA, Number(bP)];
+          return (valsA[sortColumn] > valsB[sortColumn] ? 1 : -1) * sortDirection;
+        });
+      }
 
-  // Update table
-  document.getElementById('hospitals').innerHTML = `
-    <tr>
-      <th onclick="sort(0)">Hospital ${sortColArrow(0)}</th>
-      <th onclick="sort(1)">Country ${sortColArrow(1)}</th>
-      <th onclick="sort(2)">Specialty ${sortColArrow(2)}</th>
-      <th onclick="sort(4)">Price ${sortColArrow(4)}</th>
-      <th onclick="sort(3)">Accredited ${sortColArrow(3)}</th>
-    </tr>
-    ${filtered.map(row => {
-      const [n,c,s,a,p] = row.split(',');
-      return `<tr>
-        <td>${n}</td>
-        <td>${c}</td>
-        <td>${s}</td>
-        <td>$${Number(p).toLocaleString()}</td>
-        <td>${a === 'Yes' ? '✅' : '❌'}</td>
-      </tr>`;
-    }).join('')}
-  `;
-}
+      document.getElementById('hospitals').innerHTML = `
+        <tr>
+          <th onclick="sort(0)">Hospital ${sortColArrow(0)}</th>
+          <th onclick="sort(1)">Country ${sortColArrow(1)}</th>
+          <th onclick="sort(2)">Specialty ${sortColArrow(2)}</th>
+          <th onclick="sort(4)">Price ${sortColArrow(4)}</th>
+          <th onclick="sort(3)">Accredited ${sortColArrow(3)}</th>
+        </tr>
+        ${filtered.map(row => {
+          const [n,c,s,a,p] = row.split(',');
+          return `<tr>
+            <td>${n}</td>
+            <td>${c}</td>
+            <td>${s}</td>
+            <td>$${Number(p).toLocaleString()}</td>
+            <td>${a === 'Yes' ? '✅' : '❌'}</td>
+          </tr>`;
+        }).join('')}
+      `;
+    }
 
-function sort(col) {
-  if(sortColumn === col) {
-    sortDirection *= -1;
-  } else {
-    sortColumn = col;
-    sortDirection = 1;
-  }
-  updateTable();
-}
+    // Sorting
+    function sort(col) {
+      sortColumn = sortColumn === col ? col : col;
+      sortDirection = sortColumn === col ? sortDirection * -1 : 1;
+      updateTable();
+    }
 
-function sortColArrow(col) {
-  return sortColumn === col ? (sortDirection === 1 ? '↑' : '↓') : '';
-}
+    function sortColArrow(col) {
+      return sortColumn === col ? (sortDirection === 1 ? '↑' : '↓') : '';
+    }
 
-document.getElementById('search').addEventListener('input', updateTable);
-document.getElementById('accreditedOnly').addEventListener('change', updateTable);
-</script>
+    // AI Recommendations
+    async function getRecommendations() {
+      const query = document.getElementById('aiQuery').value;
+      if(!query) return;
+
+      try {
+        const response = await fetch('https://api-inference.huggingface.co/models/emilyalsentzer/Bio_ClinicalBERT', {
+          method: 'POST',
+          headers: {
+            'Authorization': 'Bearer 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',
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({inputs: query}),
+        });
+        
+        const data = await response.json();
+        const medicalTerms = data[0].filter(t => t.score > 0.9).map(t => t.word);
+        
+        document.getElementById('aiResults').innerHTML = `
+          <p>🔍 Found ${medicalTerms.length} key terms: ${medicalTerms.join(', ')}</p>
+          <p>💡 Matching hospitals highlighted in green</p>
+        `;
+
+        document.querySelectorAll('#hospitals tr').forEach(row => {
+          const specialty = row.children[2]?.textContent.toLowerCase() || '';
+          row.style.backgroundColor = medicalTerms.some(term => specialty.includes(term)) 
+            ? '#e6ffe6' : '';
+        });
+
+      } catch (error) {
+        console.error('AI Error:', error);
+      }
+    }
+
+    // Event listeners
+    document.getElementById('search').addEventListener('input', updateTable);
+    document.getElementById('accreditedOnly').addEventListener('change', updateTable);
+  </script>
 </body>
 </html>
