@@ -22,39 +22,78 @@
   </table>
 
   <script>
-    let allHospitals = [];
-    fetch('https://raw.githubusercontent.com/John-Caples/medical-tourism-platform/main/hospitals.csv')
-      .then(r => r.text())
-      .then(d => {
-        allHospitals = d.split('\n').slice(1);
-        updateTable();
-      });
+let allHospitals = [];
+let sortColumn = null;
+let sortDirection = 1;
 
-    function updateTable() {
-      const search = document.getElementById('search').value.toLowerCase();
-      const accreditedOnly = document.getElementById('accreditedOnly').checked;
-      const filtered = allHospitals.filter(row => {
-        const [n,c,s,a,p] = row.split(',');
-        return (n.toLowerCase().includes(search) && (!accreditedOnly || a === 'Yes');
-      });
-      
-      document.getElementById('hospitals').innerHTML = `
-        <tr><th>Hospital</th><th>Country</th><th>Specialty</th><th>Price</th><th>Accredited</th></tr>
-        ${filtered.map(row => {
-          const [n,c,s,a,p] = row.split(',');
-          return `<tr>
-            <td>${n}</td>
-            <td>${c}</td>
-            <td>${s}</td>
-            <td>$${Number(p).toLocaleString()}</td>
-            <td>${a === 'Yes' ? '✅' : '❌'}</td>
-          </tr>`;
-        }).join('')}
-      `;
-    }
+fetch('https://raw.githubusercontent.com/John-Caples/medical-tourism-platform/main/hospitals.csv')
+  .then(r => r.text())
+  .then(d => {
+    allHospitals = d.split('\n').slice(1);
+    updateTable();
+  });
 
-    document.getElementById('search').addEventListener('input', updateTable);
-    document.getElementById('accreditedOnly').addEventListener('change', updateTable);
-  </script>
+function updateTable() {
+  const search = document.getElementById('search').value.toLowerCase();
+  const accreditedOnly = document.getElementById('accreditedOnly').checked;
+  
+  // Filter
+  let filtered = allHospitals.filter(row => {
+    const [n,c,s,a,p] = row.split(',');
+    return (n.toLowerCase().includes(search) || c.toLowerCase().includes(search)) && 
+          (!accreditedOnly || a === 'Yes');
+  });
+
+  // Sort
+  if(sortColumn !== null) {
+    filtered.sort((a,b) => {
+      const [aName,aCountry,aSpec,aAcc,aPrice] = a.split(',');
+      const [bName,bCountry,bSpec,bAcc,bPrice] = b.split(',');
+      const vals = [aName, aCountry, aSpec, aAcc, Number(aPrice)];
+      const compareA = vals[sortColumn];
+      const compareB = vals[sortColumn];
+      return (compareA > compareB ? 1 : -1) * sortDirection;
+    });
+  }
+
+  // Update table
+  document.getElementById('hospitals').innerHTML = `
+    <tr>
+      <th onclick="sort(0)">Hospital ${sortColArrow(0)}</th>
+      <th onclick="sort(1)">Country ${sortColArrow(1)}</th>
+      <th onclick="sort(2)">Specialty ${sortColArrow(2)}</th>
+      <th onclick="sort(4)">Price ${sortColArrow(4)}</th>
+      <th onclick="sort(3)">Accredited ${sortColArrow(3)}</th>
+    </tr>
+    ${filtered.map(row => {
+      const [n,c,s,a,p] = row.split(',');
+      return `<tr>
+        <td>${n}</td>
+        <td>${c}</td>
+        <td>${s}</td>
+        <td>$${Number(p).toLocaleString()}</td>
+        <td>${a === 'Yes' ? '✅' : '❌'}</td>
+      </tr>`;
+    }).join('')}
+  `;
+}
+
+function sort(col) {
+  if(sortColumn === col) {
+    sortDirection *= -1;
+  } else {
+    sortColumn = col;
+    sortDirection = 1;
+  }
+  updateTable();
+}
+
+function sortColArrow(col) {
+  return sortColumn === col ? (sortDirection === 1 ? '↑' : '↓') : '';
+}
+
+document.getElementById('search').addEventListener('input', updateTable);
+document.getElementById('accreditedOnly').addEventListener('change', updateTable);
+</script>
 </body>
 </html>
